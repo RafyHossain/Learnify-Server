@@ -142,7 +142,27 @@ async function run() {
 
    
     // unenrolment
-   
+    app.delete("/enroll/:id", async (req, res) => {
+      const enrollment = await enrollCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+
+      if (!enrollment) {
+        return res.send({ message: "Enrollment not found" });
+      }
+
+      const result = await enrollCollection.deleteOne({
+        _id: new ObjectId(req.params.id),
+      });
+
+      //  decrement enrolledCount
+      await courseCollection.updateOne(
+        { _id: new ObjectId(enrollment.courseId) },
+        { $inc: { enrolledCount: -1 } }
+      );
+
+      res.send(result);
+    });
   } finally {
     
   }
