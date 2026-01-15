@@ -50,7 +50,35 @@ async function run() {
       res.send(result);
     });
 
-    
+    /*  COURSES */
+
+    app.get("/courses", async (req, res) => {
+      const result = await courseCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/courses/:id", async (req, res) => {
+      const result = await courseCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(result);
+    });
+
+    app.post("/courses", async (req, res) => {
+      try {
+        const course = req.body;
+        course.createdAt = new Date();
+        course.enrolledCount = 0;
+        course.rating = 0;
+        course.isPublished = true;
+
+        const result = await courseCollection.insertOne(course);
+        res.send(result);
+      } catch {
+        res.status(500).send({ message: "Failed to add course" });
+      }
+    });
+
   } finally {
     
   }
