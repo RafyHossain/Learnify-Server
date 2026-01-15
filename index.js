@@ -24,7 +24,39 @@ app.get("/", (req, res) => {
   res.send("Learnify Server is Running");
 });
 
+async function run() {
+  try {
+    await client.connect();
 
+    const db = client.db("Learnify_DB");
+    const courseCollection = db.collection("courses");
+    const usersCollection = db.collection("users");
+    const enrollCollection = db.collection("enrollments");
+
+    /*  USERS */
+
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      const query = { email: newUser.email };
+
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "User already exists" });
+      }
+
+      const result = await usersCollection.insertOne(newUser);
+      res.send(result);
+    });
+
+ 
+
+    await client.db("admin").command({ ping: 1 });
+    console.log("✅ MongoDB connected successfully!");
+  } finally {
+  }
+}
+
+run().catch(console.dir);
 
 app.listen(port, () => {
   console.log(` Server running on port ${port}`);
