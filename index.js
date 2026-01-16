@@ -17,28 +17,26 @@ const client = new MongoClient(uri);
 async function run() {
   try {
     await client.connect();
+    console.log("✅ MongoDB Connected Successfully");
 
     const db = client.db("Learnify_DB");
     const usersCollection = db.collection("users");
     const courseCollection = db.collection("courses");
     const enrollCollection = db.collection("enrollments");
 
-    console.log("✅ MongoDB Connected Successfully");
-
-    /* USERS */
+    /* ================= USERS ================= */
 
     app.post("/users", async (req, res) => {
       const user = req.body;
       const exists = await usersCollection.findOne({ email: user.email });
       if (exists) return res.send({ message: "User already exists" });
+
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
 
     app.get("/users/:email", async (req, res) => {
-      const user = await usersCollection.findOne({
-        email: req.params.email,
-      });
+      const user = await usersCollection.findOne({ email: req.params.email });
       res.send(user || { exists: false });
     });
 
@@ -50,7 +48,7 @@ async function run() {
       res.send(result);
     });
 
-    /*  COURSES */
+    /* ================= COURSES ================= */
 
     app.get("/courses", async (req, res) => {
       const result = await courseCollection.find().toArray();
@@ -58,23 +56,29 @@ async function run() {
     });
 
     app.get("/courses/:id", async (req, res) => {
-      const result = await courseCollection.findOne({
+      const course = await courseCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
-      res.send(result);
+      res.send(course);
     });
 
+    //  ADD COURSE (FIXED)
     app.post("/courses", async (req, res) => {
       try {
-        const course = req.body;
-        course.createdAt = new Date();
-        course.enrolledCount = 0;
-        course.rating = 0;
-        course.isPublished = true;
+        const course = {
+          ...req.body,
+          image: req.body.image, // ✅ STANDARD FIELD
+          createdAt: new Date(),
+          enrolledCount: 0,
+          rating: 0,
+          isPublished: true,
+        };
 
         const result = await courseCollection.insertOne(course);
-        res.send(result);
-      } catch {
+
+        //  return full course for instant UI update
+        res.send({ ...course, _id: result.insertedId });
+      } catch (err) {
         res.status(500).send({ message: "Failed to add course" });
       }
     });
@@ -101,9 +105,8 @@ async function run() {
       res.send(result);
     });
 
-    /* ENROLL  */
+    /* ================= ENROLL ================= */
 
-    
     app.post("/enroll", async (req, res) => {
       const { courseId, studentEmail } = req.body;
 
@@ -111,10 +114,7 @@ async function run() {
         courseId,
         studentEmail,
       });
-
-      if (exists) {
-        return res.send({ enrolled: true });
-      }
+      if (exists) return res.send({ enrolled: true });
 
       const result = await enrollCollection.insertOne({
         courseId,
@@ -122,16 +122,6 @@ async function run() {
         enrolledAt: new Date(),
       });
 
-       // get enroll ment
-    app.get("/enroll/:email", async (req, res) => {
-      const result = await enrollCollection
-        .find({ studentEmail: req.params.email })
-        .toArray();
-      res.send(result);
-    });
-
-
-      //  increment enrolledCount
       await courseCollection.updateOne(
         { _id: new ObjectId(courseId) },
         { $inc: { enrolledCount: 1 } }
@@ -140,37 +130,38 @@ async function run() {
       res.send(result);
     });
 
-   
-    // unenrolment
+    // FIXED LOCATION
+    app.get("/enroll/:email", async (req, res) => {
+      const result = await enrollCollection
+        .find({ studentEmail: req.params.email })
+        .toArray();
+      res.send(result);
+    });
+
     app.delete("/enroll/:id", async (req, res) => {
       const enrollment = await enrollCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
+      if (!enrollment) return res.send({ message: "Enrollment not found" });
 
-      if (!enrollment) {
-        return res.send({ message: "Enrollment not found" });
-      }
-
-      const result = await enrollCollection.deleteOne({
+      await enrollCollection.deleteOne({
         _id: new ObjectId(req.params.id),
       });
 
-      //  decrement enrolledCount
       await courseCollection.updateOne(
         { _id: new ObjectId(enrollment.courseId) },
         { $inc: { enrolledCount: -1 } }
       );
 
-      res.send(result);
+      res.send({ success: true });
     });
-  } finally {
-    
-  }
+
+  } finally {}
 }
 
 run().catch(console.dir);
 
-
+/* ================= ROOT ================= */
 app.get("/", (req, res) => {
   res.send("🚀 Learnify Server is Running");
 });
